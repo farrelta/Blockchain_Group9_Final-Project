@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
+import { useEffect } from 'react';
 import BankArtifact from './SimpleBank.json';
 
 // !!! PASTE YOUR NEW ADDRESS HERE !!!
-const contractAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"; 
+const contractAddress = "0x7943f633ee5541228E95026c65308Ca47910A2B4"; 
 
 function App() {
   const [balance, setBalance] = useState('0');
@@ -57,6 +58,11 @@ function App() {
       alert("Error: Do you have enough funds deposited?");
     }
   }
+
+
+  useEffect(() => {
+    refreshBalance();
+  }, []);
 
   return (
     <div style={{ padding: "50px", fontFamily: "sans-serif" }}>
