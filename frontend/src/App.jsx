@@ -126,32 +126,38 @@ function App() {
   }, [account, refreshBalance]);
 
   return (
-    <main className="bank-app">
+    <div style={{ padding: "50px", fontFamily: "sans-serif" }}>
       <h1>My Bank DApp</h1>
-      <p>Connected wallet: {account ? `${account.slice(0, 6)}…${account.slice(-4)}` : 'Not connected'}</p>
-      <button onClick={connectWallet} disabled={busy}>
-        {account ? 'Reconnect wallet' : 'Connect wallet'}
+      <h3>My Balance in Contract: {balance} ETH</h3>
+      <button
+        onClick={account ? () => refreshBalance() : connectWallet}
+        disabled={busy}
+      >
+        {account ? 'Refresh Balance' : 'Connect Wallet'}
+      </button>
+      <br /><br />
+
+      <input
+        type="number"
+        min="0"
+        step="any"
+        value={amount}
+        onChange={(event) => setAmount(event.target.value)}
+        placeholder="Amount in ETH"
+        aria-label="Amount in ETH"
+        style={{ padding: "10px", marginRight: "10px" }}
+      />
+
+      <button onClick={() => submitTransaction('deposit')} disabled={!account || busy} style={{ padding: "10px", marginRight: "10px" }}>
+        Deposit
       </button>
 
-      <h2>Contract balance: {balance} ETH</h2>
-      <button onClick={() => refreshBalance()} disabled={!account || busy}>Refresh balance</button>
-
-      <div className="bank-actions">
-        <input
-          type="number"
-          min="0"
-          step="any"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          placeholder="Amount in ETH"
-          aria-label="Amount in ETH"
-        />
-        <button onClick={() => submitTransaction('deposit')} disabled={!account || busy}>Deposit</button>
-        <button onClick={() => submitTransaction('withdraw')} disabled={!account || busy}>Withdraw</button>
-      </div>
+      <button onClick={() => submitTransaction('withdraw')} disabled={!account || busy} style={{ padding: "10px", backgroundColor: "oklch(25.8% 0.092 26.042)" }}>
+        Withdraw
+      </button>
       {busy && <p role="status">{message}</p>}
       {!busy && message && <p role="alert">{message}</p>}
-    </main>
+    </div>
   );
 }
 
