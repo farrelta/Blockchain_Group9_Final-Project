@@ -1,13 +1,23 @@
-# Sample Hardhat Project
+# SimpleBank contract
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
-
-Try running some of the following tasks:
+Install dependencies with `npm install` in this directory. Compile and test the bank contract with:
 
 ```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.js
+npm test
+npm run compile
 ```
+
+To deploy locally, start a Hardhat node in one terminal and deploy from another:
+
+```shell
+npx hardhat node
+npx hardhat ignition deploy ./ignition/modules/BankModule.js --network localhost
+```
+
+For Sepolia, create a `.env` file with `SEPOLIA_RPC_URL` and `PRIVATE_KEY` set to your own RPC endpoint and funded deployer key. The deployment command is:
+
+```shell
+npx hardhat ignition deploy ./ignition/modules/BankModule.js --network sepolia
+```
+
+Never commit `.env` or share a funded private key.

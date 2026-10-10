@@ -1,92 +1,157 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import { useEffect } from 'react';
 import BankArtifact from './SimpleBank.json';
 
-// !!! PASTE YOUR NEW ADDRESS HERE !!!
-const contractAddress = "0x7943f633ee5541228E95026c65308Ca47910A2B4"; 
+const contractAddress = import.meta.env.VITE_BANK_CONTRACT_ADDRESS;
+const expectedChainId = BigInt(import.meta.env.VITE_CHAIN_ID || '11155111');
 
 function App() {
-  const [balance, setBalance] = useState('0');
+  const [account, setAccount] = useState('');
+  const [balance, setBalance] = useState('—');
   const [amount, setAmount] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
 
-  // Helper to connect to wallet
-  async function getContract() {
-    if (typeof window.ethereum === 'undefined') return null;
-    await window.ethereum.request({ method: 'eth_requestAccounts' });
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    return new ethers.Contract(contractAddress, BankArtifact.abi, signer);
-  }
-
-  async function refreshBalance() {
-    const contract = await getContract();
-    if (!contract) return;
-    try {
-      const balanceBigInt = await contract.getBalance();
-      setBalance(ethers.formatEther(balanceBigInt));
-    } catch (error) {
-      console.error(error);
+  const getProvider = useCallback(() => {
+    if (!window.ethereum) throw new Error('Install a browser wallet to use this bank.');
+    if (!ethers.isAddress(contractAddress || '')) {
+      throw new Error('Set VITE_BANK_CONTRACT_ADDRESS in the frontend environment.');
     }
-  }
-
-  async function handleDeposit() {
-    const contract = await getContract();
-    if (!contract || !amount) return;
-    try {
-      const tx = await contract.deposit({ value: ethers.parseEther(amount) });
-      await tx.wait(); // Wait for mining
-      setAmount('');
-      refreshBalance();
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  // --- NEW WITHDRAW FUNCTION ---
-  async function handleWithdraw() {
-    const contract = await getContract();
-    if (!contract || !amount) return;
-    try {
-      // Call the new Solidity function
-      const tx = await contract.withdraw(ethers.parseEther(amount));
-      await tx.wait();
-      setAmount('');
-      refreshBalance();
-    } catch (error) {
-      console.error("Withdraw Error:", error);
-      alert("Error: Do you have enough funds deposited?");
-    }
-  }
-
-
-  useEffect(() => {
-    refreshBalance();
+    return new ethers.BrowserProvider(window.ethereum);
   }, []);
 
+  const checkNetwork = useCallback(async (provider) => {
+    const network = await provider.getNetwork();
+    if (network.chainId !== expectedChainId) {
+      throw new Error(`Switch your wallet to chain ${expectedChainId.toString()}.`);
+    }
+  }, []);
+
+  const refreshBalance = useCallback(async (selectedAccount = account) => {
+    if (!selectedAccount) {
+      setBalance('—');
+      return;
+    }
+
+    try {
+      const provider = getProvider();
+      await checkNetwork(provider);
+      const bank = new ethers.Contract(contractAddress, BankArtifact.abi, provider);
+      const value = await bank.balances(selectedAccount);
+      setBalance(ethers.formatEther(value));
+      setMessage('');
+    } catch (error) {
+      setMessage(error.message || 'Could not read your balance.');
+    }
+  }, [account, checkNetwork, getProvider]);
+
+  const connectWallet = async () => {
+    try {
+      const provider = getProvider();
+      const [selectedAccount] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      await checkNetwork(provider);
+      setAccount(selectedAccount);
+      await refreshBalance(selectedAccount);
+    } catch (error) {
+      setMessage(error.message || 'Could not connect to your wallet.');
+    }
+  };
+
+  const submitTransaction = async (action) => {
+    if (!amount || !account) {
+      setMessage('Connect your wallet and enter an amount greater than zero.');
+      return;
+    }
+
+    let value;
+    try {
+      value = ethers.parseEther(amount);
+      if (value <= 0n) throw new Error('Enter an amount greater than zero.');
+    } catch (error) {
+      setMessage(error.message || 'Enter a valid ETH amount.');
+      return;
+    }
+
+    setBusy(true);
+    setMessage('Waiting for transaction confirmation…');
+    try {
+      const provider = getProvider();
+      await checkNetwork(provider);
+      const signer = await provider.getSigner();
+      const bank = new ethers.Contract(contractAddress, BankArtifact.abi, signer);
+      const tx = action === 'deposit'
+        ? await bank.deposit({ value })
+        : await bank.withdraw(value);
+      await tx.wait();
+      setAmount('');
+      setMessage('Transaction confirmed.');
+      await refreshBalance(account);
+    } catch (error) {
+      setMessage(error.shortMessage || error.reason || error.message || 'Transaction failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!window.ethereum) return undefined;
+
+    let active = true;
+    const loadConnectedAccount = async () => {
+      try {
+        const [selectedAccount] = await window.ethereum.request({ method: 'eth_accounts' });
+        if (active && selectedAccount) setAccount(selectedAccount);
+      } catch (error) {
+        if (active) setMessage(error.message || 'Could not check wallet connection.');
+      }
+    };
+    const handleAccountsChanged = ([selectedAccount]) => {
+      setAccount(selectedAccount || '');
+      setBalance('—');
+    };
+    const handleChainChanged = () => refreshBalance();
+
+    loadConnectedAccount();
+    window.ethereum.on?.('accountsChanged', handleAccountsChanged);
+    window.ethereum.on?.('chainChanged', handleChainChanged);
+    return () => {
+      active = false;
+      window.ethereum.removeListener?.('accountsChanged', handleAccountsChanged);
+      window.ethereum.removeListener?.('chainChanged', handleChainChanged);
+    };
+  }, [refreshBalance]);
+
+  useEffect(() => {
+    if (account) refreshBalance(account);
+  }, [account, refreshBalance]);
+
   return (
-    <div style={{ padding: "50px", fontFamily: "sans-serif" }}>
+    <main className="bank-app">
       <h1>My Bank DApp</h1>
-      <h3>My Balance in Contract: {balance} ETH</h3>
-      <button onClick={refreshBalance}>Refresh Balance</button>
-      <br /><br />
-
-      <input 
-        type="number"
-        value={amount} 
-        onChange={e => setAmount(e.target.value)} 
-        placeholder="Amount in ETH" 
-        style={{ padding: "10px", marginRight: "10px" }}
-      />
-      
-      <button onClick={handleDeposit} style={{ padding: "10px", marginRight: "10px" }}>
-        Deposit
+      <p>Connected wallet: {account ? `${account.slice(0, 6)}…${account.slice(-4)}` : 'Not connected'}</p>
+      <button onClick={connectWallet} disabled={busy}>
+        {account ? 'Reconnect wallet' : 'Connect wallet'}
       </button>
 
-      <button onClick={handleWithdraw} style={{ padding: "10px", backgroundColor: "salmon" }}>
-        Withdraw
-      </button>
-    </div>
+      <h2>Contract balance: {balance} ETH</h2>
+      <button onClick={() => refreshBalance()} disabled={!account || busy}>Refresh balance</button>
+
+      <div className="bank-actions">
+        <input
+          type="number"
+          min="0"
+          step="any"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          placeholder="Amount in ETH"
+          aria-label="Amount in ETH"
+        />
+        <button onClick={() => submitTransaction('deposit')} disabled={!account || busy}>Deposit</button>
+        <button onClick={() => submitTransaction('withdraw')} disabled={!account || busy}>Withdraw</button>
+      </div>
+      {busy && <p role="status">{message}</p>}
+      {!busy && message && <p role="alert">{message}</p>}
+    </main>
   );
 }
 

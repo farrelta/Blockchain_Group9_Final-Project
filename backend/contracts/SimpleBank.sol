@@ -11,6 +11,7 @@ contract SimpleBank {
 
     // --- NEW FUNCTION ADDED HERE ---
     function withdraw(uint256 _amount) public {
+        require(_amount > 0, "Withdrawal must be > 0");
         // 1. Check if they have enough money
         require(balances[msg.sender] >= _amount, "Insufficient funds");
 

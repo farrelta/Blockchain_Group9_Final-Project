@@ -1,23 +1,25 @@
-<!-- GETTING STARTED -->
-## Getting Started
+# SimpleBank DApp
 
-Make sure you have install node.js
+This project contains a Solidity bank contract and a React frontend that connects to it through a browser wallet.
 
-To get a local copy up and running follow these simple example steps.
+## Setup
 
-### Prerequisites
+Install dependencies in both folders:
 
-* npm
+```sh
+cd backend && npm install
+cd ../frontend && npm install
+```
 
-### Installation
+Configure the Sepolia deployment credentials using `backend/.env.example` as a guide. Deploy the contract with:
 
-1. Clone the repo
-   
-   ```sh
-   https://github.com/farrelta/Blockchain_Group9_Final-Project.git
-   ```
-2. Install NPM packages in the backend and frontend folders
-   
-   ```sh
-   npm install
-   ```
+```sh
+cd backend
+npx hardhat ignition deploy ./ignition/modules/BankModule.js --network sepolia
+```
+
+Set the deployed address and target chain in `frontend/.env` using `frontend/.env.example`. Then start the app from the frontend directory with `npm run dev`. The wallet must be connected to the configured chain to read balances and send transactions.
+
+## Tests
+
+Run the contract tests with `cd backend && npm test`.
